@@ -13,34 +13,20 @@ Vagrant.configure("2") do |config|
     end
     lb.vm.network "private_network" , ip: "192.168.56.100" 
     lb.vm.provision "shell", inline: <<-EOF
-      yum -y install avahi nssmdns unzip
+      yum -y install avahi nss-mdns unzip
       mkdir ~/src
       wget -qO - http://nginx.org/download/nginx-1.12.2.tar.gz | tar -C ~/src/ -xzf -
       wget -qO - https://ftp.pcre.org/pub/pcre/pcre-8.41.tar.gz | tar -C ~/src/ -xzf -
-      #groupadd -g 700 nginx
-      #useradd -u 700 -g 700 nginx
       cd ~/src/nginx-1.12.2
       ./configure --prefix="/usr/nginx"  --sbin-path="/usr/nginx/sbin/nginx" --conf-path="/usr/nginx/conf/nginx.conf" --error-log-path="/usr/nginx/logs/error.log" --http-log-path="/usr/nginx/logs/access.log" --pid-path="/usr/nginx/logs/nginx.pid" --user="root" --group="root" --with-http_realip_module --with-pcre="~/src/pcre-8.41" --without-http_gzip_module
       make -s 
       make install -s
-      #chown -R nginx /usr/nginx
-      #chgrp -R nginx /usr/nginx
       cd ; rm -rf ~/src/
       cp /vagrant/nginx.conf /usr/nginx/conf/nginx.conf
       cp /vagrant/upstreams.conf /usr/nginx/conf/upstreams.conf
       cp /vagrant/nginx.service /etc/systemd/system/nginx.service
       systemctl start nginx
       systemctl enable nginx
-      #systemctl start firewalld
-      #systemctl enable firewalld
-      #firewall-cmd --permanent --zone=public --add-port=80/tcp
-      #firewall-cmd --permanent --zone=public --add-port=8080/tcp
-      #firewall-cmd --zone=public --add-masquerade --permanent
-      #firewall-cmd --zone=public --add-forward-port=port=80:proto=tcp:toport=8080 --permanent
-      #firewall-cmd --permanent --zone=public --add-port=5353/udp
-      #firewall-cmd --permanent --zone=public --add-port=7946/udp
-      #firewall-cmd --permanent --zone=public --add-port=7946/tcp
-      #firewall-cmd --reload
       systemctl start avahi-daemon
       systemctl enable avahi-daemon
       mkdir /usr/serf
