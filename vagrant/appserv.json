@@ -1,0 +1,7 @@
+{
+  "discover": "local",
+  "interface": "enp0s8",
+  "tags": {
+    "role": "appserv"
+  }
+}

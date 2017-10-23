@@ -1,0 +1,87 @@
+
+i = 2
+
+Vagrant.configure("2") do |config|
+
+  config.vm.define "lb" do |lb|
+
+    lb.vm.box = "sbeliakou/centos-7.4-x86_64-minimal"
+    lb.vm.hostname = "epbyminw2033t1.epam.com"
+    lb.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.name = "lb"
+    end
+    lb.vm.network "private_network" , ip: "192.168.56.100" 
+    lb.vm.provision "shell", inline: <<-EOF
+      yum -y install avahi nssmdns unzip
+      mkdir ~/src
+      wget -qO - http://nginx.org/download/nginx-1.12.2.tar.gz | tar -C ~/src/ -xzf -
+      wget -qO - https://ftp.pcre.org/pub/pcre/pcre-8.41.tar.gz | tar -C ~/src/ -xzf -
+      #groupadd -g 700 nginx
+      #useradd -u 700 -g 700 nginx
+      cd ~/src/nginx-1.12.2
+      ./configure --prefix="/usr/nginx"  --sbin-path="/usr/nginx/sbin/nginx" --conf-path="/usr/nginx/conf/nginx.conf" --error-log-path="/usr/nginx/logs/error.log" --http-log-path="/usr/nginx/logs/access.log" --pid-path="/usr/nginx/logs/nginx.pid" --user="root" --group="root" --with-http_realip_module --with-pcre="~/src/pcre-8.41" --without-http_gzip_module
+      make -s 
+      make install -s
+      #chown -R nginx /usr/nginx
+      #chgrp -R nginx /usr/nginx
+      cd ; rm -rf ~/src/
+      cp /vagrant/nginx.conf /usr/nginx/conf/nginx.conf
+      cp /vagrant/upstreams.conf /usr/nginx/conf/upstreams.conf
+      cp /vagrant/nginx.service /etc/systemd/system/nginx.service
+      systemctl start nginx
+      systemctl enable nginx
+      #systemctl start firewalld
+      #systemctl enable firewalld
+      #firewall-cmd --permanent --zone=public --add-port=80/tcp
+      #firewall-cmd --permanent --zone=public --add-port=8080/tcp
+      #firewall-cmd --zone=public --add-masquerade --permanent
+      #firewall-cmd --zone=public --add-forward-port=port=80:proto=tcp:toport=8080 --permanent
+      #firewall-cmd --permanent --zone=public --add-port=5353/udp
+      #firewall-cmd --permanent --zone=public --add-port=7946/udp
+      #firewall-cmd --permanent --zone=public --add-port=7946/tcp
+      #firewall-cmd --reload
+      systemctl start avahi-daemon
+      systemctl enable avahi-daemon
+      mkdir /usr/serf
+      wget -qO /tmp/serf.zip https://releases.hashicorp.com/serf/0.8.1/serf_0.8.1_linux_amd64.zip?_ga=2.57494378.136262942.1508767995-833545891.1508767995 ; unzip /tmp/serf.zip -d /usr/serf ; rm -f /tmp/serf.zip
+      cp /vagrant/lb.json /usr/serf/00_local.json
+      cp /vagrant/*.sh /usr/serf/
+      chmod +x /usr/serf/*.sh
+      cp /vagrant/serf.service /etc/systemd/system
+      systemctl start serf
+      systemctl enable serf
+    EOF
+  end
+
+  (1..i).each do |i|
+
+    config.vm.define "appserv-#{i}" do |appserv|
+      appserv.vm.box = "sbeliakou/centos-7.4-x86_64-minimal"
+      appserv.vm.hostname = "epbyminw2033t#{i+1}.epam.com"
+      appserv.vm.provider "virtualbox" do |vb|
+        vb.memory = "2048"
+        vb.name = "appserv-#{i}"
+      end
+      appserv.vm.network "private_network" , ip: "192.168.56.#{i+100}"
+      appserv.vm.provision "shell", inline: <<-EOF
+        yum -y install java avahi nss-mdns unzip
+        mkdir -p /usr/tomcat
+        wget -qO - http://ftp.byfly.by/pub/apache.org/tomcat/tomcat-8/v8.5.23/bin/apache-tomcat-8.5.23.tar.gz | tar -C /usr/tomcat -xzf -
+        cp /vagrant/clusterjsp.war /usr/tomcat/apache-tomcat-8.5.23/webapps/
+        cp /vagrant/tomcat.service /etc/systemd/system
+        systemctl start tomcat
+        systemctl enable tomcat
+        systemctl start avahi-daemon
+        systemctl enable avahi-daemon
+        mkdir /usr/serf
+        wget -qO /tmp/serf.zip https://releases.hashicorp.com/serf/0.8.1/serf_0.8.1_linux_amd64.zip?_ga=2.57494378.136262942.1508767995-833545891.1508767995 ; unzip /tmp/serf.zip -d /usr/serf ; rm -f /tmp/serf.zip
+        cp /vagrant/appserv.json /usr/serf/00_local.json
+        cp /vagrant/serf.service /etc/systemd/system
+        systemctl start serf
+        systemctl enable serf
+
+      EOF
+    end
+  end
+end
